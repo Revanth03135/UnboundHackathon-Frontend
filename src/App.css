@@ -202,3 +202,63 @@ body {
 
 /* Form Labels */
 .rule-form label { display: block; margin-bottom: 6px; color: var(--text-dim); font-size: 12px; font-weight: bold; }
+/* --- FIX: INLINE FORM (Create User) --- */
+.inline-form {
+  display: flex;
+  gap: 12px; /* Space between input and button */
+  align-items: stretch; /* Make them same height */
+  width: 100%;
+}
+
+.inline-form input {
+  flex: 1; /* Input takes all available space */
+  margin-bottom: 0; /* Remove default margin */
+  min-width: 0; /* Prevents overflow issues */
+}
+
+.inline-form button {
+  white-space: nowrap; /* Prevents button text wrapping */
+  height: auto; /* Match input height */
+  margin-bottom: 0;
+}
+
+/* --- FIX: HISTORY LIST (Spacing & Overlap) --- */
+.list-item {
+  display: flex;
+  align-items: center; /* Vertically align items */
+  justify-content: space-between;
+  padding: 16px 0; /* More breathing room */
+  border-bottom: 1px solid #333;
+}
+
+.cmd-info {
+  display: flex;
+  flex-direction: column; /* Stack command above time */
+  gap: 4px;
+}
+
+.cmd-info code {
+  font-family: 'Fira Code', monospace;
+  font-size: 15px;
+  color: #fff;
+  background: #111;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.cmd-info .time {
+  font-size: 12px;
+  color: #888;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px; /* Pill shape */
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  min-width: 80px; /* Ensure badges are same width */
+  text-align: center;
+}
