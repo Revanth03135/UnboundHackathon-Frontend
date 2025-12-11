@@ -4,34 +4,34 @@ import './App.css';
 
 const API_URL = 'http://localhost:5000/api';
 
-function Card({ children, style }) {
-  return (
-    <div className="card-dark" style={style}>{children}</div>
-  );
-}
-
 function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('apiKey') || '');
   const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('terminal'); 
+  
+  // Data States
   const [command, setCommand] = useState('');
-  const [logs, setLogs] = useState([]); // Admin logs
-  const [myHistory, setMyHistory] = useState([]); // Member history
+  const [logs, setLogs] = useState([]);
+  const [myHistory, setMyHistory] = useState([]);
   const [output, setOutput] = useState(null);
 
-  // Login
+  // Form States (No Popups!)
+  const [usernameInput, setUsernameInput] = useState('');
+  const [createdUserKey, setCreatedUserKey] = useState(null);
+
+  // --- ACTIONS ---
   const login = async () => {
     try {
       const res = await axios.get(`${API_URL}/me`, { headers: { 'x-api-key': apiKey } });
       setUser(res.data);
       localStorage.setItem('apiKey', apiKey);
     } catch (err) {
-      alert('Invalid API Key (Key resets on server restart. Try admin-secret-123)');
+      alert('Invalid API Key');
       localStorage.removeItem('apiKey');
       setUser(null);
     }
   };
 
-  // Fetch Member History (New Feature)
   const fetchMyHistory = async () => {
     if (!apiKey) return;
     try {
@@ -40,159 +40,270 @@ function App() {
     } catch (err) { console.error(err); }
   };
 
-  // Run Command
   const runCommand = async () => {
     try {
       const res = await axios.post(`${API_URL}/commands`, { command }, { headers: { 'x-api-key': apiKey } });
       setOutput(res.data);
-      login(); // Refresh credits
-      fetchMyHistory(); // Refresh history
+      login(); 
+      fetchMyHistory();
     } catch (err) {
       setOutput({ status: 'error', message: err.response?.data?.message || 'Error' });
     }
   };
 
-  // Admin: Fetch All Logs
   const fetchLogs = async () => {
     const res = await axios.get(`${API_URL}/admin/logs`, { headers: { 'x-api-key': apiKey } });
     setLogs(res.data);
   };
 
-  // Admin: Add Rule
   const addRule = async (e) => {
     e.preventDefault();
-    const pattern = e.target.pattern.value;
-    const action = e.target.action.value;
     try {
-      await axios.post(`${API_URL}/admin/rules`, { pattern, action }, { headers: { 'x-api-key': apiKey } });
-      alert('Rule Added Successfully!');
-    } catch (err) {
-      alert('Error adding rule: ' + (err.response?.data?.error || err.message));
+      await axios.post(`${API_URL}/admin/rules`, { 
+        pattern: e.target.pattern.value, 
+        action: e.target.action.value 
+      }, { headers: { 'x-api-key': apiKey } });
+      alert('Rule Added Successfully!'); // Small toast is okay, or remove if prefer
+      e.target.reset();
+    } catch (err) { alert('Error: ' + err.response?.data?.error); }
+  };
+
+  // INLINE Create User
+  const createUser = async (e) => {
+    e.preventDefault();
+    if (!usernameInput) return;
+    
+    try {
+      const res = await axios.post(`${API_URL}/admin/users`, 
+        { username: usernameInput }, 
+        { headers: { 'x-api-key': apiKey } }
+      );
+      // Show Key on Screen instead of Alert
+      setCreatedUserKey({ name: usernameInput, key: res.data.apiKey });
+      setUsernameInput(''); // Clear input
+    } catch (err) { 
+      alert('Error creating user: ' + (err.response?.data?.error || err.message)); 
     }
   };
 
-  // Admin: Create User
-  const createUser = async () => {
-    const name = prompt('Enter new username:');
-    if (!name) return;
-    const res = await axios.post(`${API_URL}/admin/users`, { username: name }, { headers: { 'x-api-key': apiKey } });
-    alert(`User Created! Their API Key is: ${res.data.apiKey}`);
-  };
+  useEffect(() => { if (user) fetchMyHistory(); }, [user]);
 
-  // Load history on login
-  useEffect(() => {
-    if (user) {
-        fetchMyHistory();
-    }
-  }, [user]);
-
+  // --- RENDER: LOGIN SCREEN ---
   if (!user) {
     return (
-      <div className="login-dark">
-        <Card style={{ maxWidth: 400, margin: '80px auto', padding: 32 }}>
-          <h1 style={{ marginBottom: 24 }}>Command Gateway</h1>
-          <input
-            className="input-dark"
-            placeholder="Enter API Key"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            style={{ marginBottom: 16, width: '100%' }}
+      <div className="login-container">
+        <div className="login-box">
+          <h1>Command Gateway</h1>
+          <p>Secure Role-Based Execution</p>
+          <input 
+            placeholder="Enter API Key" 
+            value={apiKey} 
+            onChange={e => setApiKey(e.target.value)} 
           />
-          <button className="btn-dark" onClick={login} style={{ width: '100%', marginBottom: 16 }}>Login</button>
-          <p style={{ color: '#aaa' }}>Hint: Use <b>admin-secret-123</b> for Admin</p>
-        </Card>
+          <button className="btn-primary full-width" onClick={login}>Authenticate</button>
+          <small>Admin: <b>admin-secret-123</b></small>
+        </div>
       </div>
     );
   }
 
+  // --- RENDER: DASHBOARD ---
   return (
-    <div className="app-dark">
-      <header className="header-dark">
-        <div>
-          <h2 style={{ margin: 0 }}>Welcome, {user.username} <span style={{ color: '#888', fontWeight: 400 }}>({user.role})</span></h2>
+    <div className="dashboard">
+      {/* SIDEBAR NAVIGATION */}
+      <aside className="sidebar">
+        <div className="logo-area">
+          <h3>GATEWAY</h3>
+          <span className="role-badge">{user.role}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <span className="credits-dark">Credits: {user.credits}</span>
-          <button className="btn-dark" onClick={() => { setUser(null); localStorage.removeItem('apiKey'); }}>Logout</button>
+        
+        <nav>
+          <p className="nav-label">MEMBER</p>
+          <button 
+            className={activeTab === 'terminal' ? 'nav-btn active' : 'nav-btn'}
+            onClick={() => setActiveTab('terminal')}
+          >
+            >_ Terminal
+          </button>
+          <button 
+            className={activeTab === 'history' ? 'nav-btn active' : 'nav-btn'}
+            onClick={() => setActiveTab('history')}
+          >
+            ↺ History
+          </button>
+          
+          {user.role === 'admin' && (
+            <>
+              <p className="nav-label">ADMINISTRATION</p>
+              <button 
+                className={activeTab === 'admin-users' ? 'nav-btn active' : 'nav-btn'}
+                onClick={() => { setActiveTab('admin-users'); setCreatedUserKey(null); }}
+              >
+                👤 Manage Users
+              </button>
+              <button 
+                className={activeTab === 'admin-rules' ? 'nav-btn active' : 'nav-btn'}
+                onClick={() => setActiveTab('admin-rules')}
+              >
+                🛡 Manage Rules
+              </button>
+              <button 
+                className={activeTab === 'admin-logs' ? 'nav-btn active' : 'nav-btn'}
+                onClick={() => { setActiveTab('admin-logs'); fetchLogs(); }}
+              >
+                📜 Audit Logs
+              </button>
+            </>
+          )}
+        </nav>
+
+        <div className="user-info">
+          <div className="credits-box">
+            <span>Credits</span>
+            <strong>{user.credits}</strong>
+          </div>
+          <button className="logout-btn" onClick={() => { setUser(null); localStorage.removeItem('apiKey'); }}>
+            Logout
+          </button>
         </div>
-      </header>
+      </aside>
 
-      <main className="main-dark">
-        <div style={{flex: 1, display: 'flex', flexDirection: 'column', gap: '20px', minWidth: '320px', marginRight: '24px'}}>
-            {/* Terminal Section */}
-            <Card>
-            <h3>Terminal</h3>
-            <input
-                className="input-dark"
-                type="text"
-                placeholder="Type command (e.g., ls -la, rm -rf /)"
-                value={command}
-                onChange={e => setCommand(e.target.value)}
-                style={{ marginBottom: 12, width: '100%' }}
-            />
-            <button className="btn-dark" onClick={runCommand} style={{ width: '100%' }}>Run Command</button>
-            {output && (
-                <div className="output-dark" style={{ marginTop: 16, border: output.status === 'rejected' ? '1px solid red' : '1px solid green' }}>
-                <b style={{ color: output.status === 'rejected' ? 'red' : 'lightgreen' }}>Status: {output.status.toUpperCase()}</b><br />
-                <span style={{ color: '#ccc' }}>Message: {output.message}</span>
-                </div>
-            )}
-            </Card>
+      {/* MAIN CONTENT AREA */}
+      <main className="content-area">
+        <header>
+          <h2>
+            {activeTab === 'terminal' && 'Command Terminal'}
+            {activeTab === 'history' && 'Execution History'}
+            {activeTab === 'admin-users' && 'User Management'}
+            {activeTab === 'admin-rules' && 'Security Rules'}
+            {activeTab === 'admin-logs' && 'System Audit Logs'}
+          </h2>
+          <span className="user-welcome">User: {user.username}</span>
+        </header>
 
-            {/* Member History Section (Requirement Check!) */}
-            <Card>
-                <h3>My Command History</h3>
-                {myHistory.length === 0 ? <p style={{color:'#666'}}>No commands run yet.</p> : (
-                    <ul style={{ paddingLeft: 16, maxHeight: '200px', overflowY: 'auto' }}>
-                    {myHistory.map((log, idx) => (
-                        <li key={idx} style={{ marginBottom: 4, color: '#ccc', fontSize: 14 }}>
-                            <code>{log.command}</code> 
-                            <span style={{color: log.actionTaken==='REJECTED'?'red':'lightgreen', marginLeft:'10px', fontSize:'0.8em'}}>
-                                {log.actionTaken}
-                            </span>
-                        </li>
-                    ))}
-                    </ul>
+        {/* VIEW: TERMINAL */}
+        {activeTab === 'terminal' && (
+          <div className="card terminal-card">
+            <div className="terminal-window">
+              <div className="terminal-header">
+                <span className="dot red"></span><span className="dot yellow"></span><span className="dot green"></span>
+                <span className="title">bash -- gateway</span>
+              </div>
+              <div className="terminal-body">
+                {output && (
+                   <div className={`output-log ${output.status}`}>
+                     <span className="timestamp">[{new Date().toLocaleTimeString()}]</span>
+                     <span className="status">{output.status.toUpperCase()}:</span> 
+                     {output.message}
+                   </div>
                 )}
-            </Card>
-        </div>
-
-        {/* Admin Panel */}
-        {user.role === 'admin' && (
-          <Card style={{ flex: 1, minWidth: 320 }}>
-            <h3>Admin Panel</h3>
-            <div style={{display:'flex', gap: '10px', marginBottom: '12px'}}>
-                <button className="btn-dark" onClick={fetchLogs} style={{ flex:1 }}>Fetch Logs</button>
-                <button className="btn-dark" onClick={createUser} style={{ flex:1 }}>Create User</button>
+                <div className="input-line">
+                  <span className="prompt">$</span>
+                  <input 
+                    type="text" 
+                    autoFocus
+                    placeholder="Enter command..." 
+                    value={command} 
+                    onChange={e => setCommand(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && runCommand()}
+                  />
+                </div>
+              </div>
             </div>
+            <button className="btn-primary mt-20" onClick={runCommand}>Execute Command</button>
+          </div>
+        )}
+
+        {/* VIEW: HISTORY */}
+        {activeTab === 'history' && (
+          <div className="card">
+            <ul className="list-view">
+              {myHistory.length === 0 ? <p className="empty">No commands executed yet.</p> : myHistory.map((log, i) => (
+                <li key={i} className="list-item">
+                  <div className="cmd-info">
+                    <code>{log.command}</code>
+                    <span className="time">{new Date(log.timestamp).toLocaleString()}</span>
+                  </div>
+                  <span className={`status-badge ${log.actionTaken}`}>
+                    {log.actionTaken}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* VIEW: ADMIN - MANAGE USERS */}
+        {activeTab === 'admin-users' && (
+          <div className="card" style={{ maxWidth: '600px' }}>
+            <h3>Create New Member</h3>
+            <p style={{ color: '#888', marginBottom: '20px' }}>Generate a new API key for a team member.</p>
             
-            <form onSubmit={addRule} style={{ marginBottom: 12, padding: '10px', border: '1px solid #444', borderRadius: '4px' }}>
-              <label style={{display:'block', marginBottom:'5px', color:'#aaa'}}>Add New Rule:</label>
-              <input className="input-dark" name="pattern" placeholder="Regex (e.g. ^rm -rf)" required style={{ marginBottom: 8, width: '100%' }} />
-              <select className="input-dark" name="action" style={{ marginBottom: 8, width: '100%' }}>
-                <option value="AUTO_REJECT">Block (AUTO_REJECT)</option>
-                <option value="AUTO_ACCEPT">Allow (AUTO_ACCEPT)</option>
-              </select>
-              <button className="btn-dark" type="submit" style={{ width: '100%' }}>Save Rule</button>
+            <form onSubmit={createUser} className="inline-form">
+              <input 
+                placeholder="Enter Username (e.g. dev-john)" 
+                value={usernameInput}
+                onChange={e => setUsernameInput(e.target.value)}
+                required
+              />
+              <button type="submit" className="btn-primary">Generate Key</button>
             </form>
 
-            {logs.length > 0 && (
-              <div className="logs-dark" style={{ maxHeight: 200, overflowY: 'auto', marginTop: 8 }}>
-                <h4 style={{ margin: '8px 0' }}>All User Logs</h4>
-                <ul style={{ paddingLeft: 16 }}>
-                  {logs.map((log, idx) => (
-                    <li key={idx} style={{ marginBottom: 4, color: '#ccc', fontSize: 14 }}>
-                        [{new Date(log.timestamp).toLocaleTimeString()}] <b>{log.user}</b>: {log.command} 
-                        <span style={{color: log.actionTaken==='REJECTED'?'red':'lightgreen', marginLeft:'10px'}}>
-                             {log.actionTaken}
-                        </span>
-                    </li>
-                  ))}
-                </ul>
+            {/* THE API KEY DISPLAY (Inline, No Popup) */}
+            {createdUserKey && (
+              <div className="success-box">
+                <h4>✅ User Created Successfully</h4>
+                <div className="key-display">
+                  <span className="label">Username:</span> <span className="val">{createdUserKey.name}</span><br/>
+                  <span className="label">API Key:</span> <code className="val key">{createdUserKey.key}</code>
+                </div>
+                <p className="warning-text">⚠️ Copy this key now. It will not be shown again.</p>
               </div>
             )}
-          </Card>
+          </div>
         )}
+
+        {/* VIEW: ADMIN - MANAGE RULES */}
+        {activeTab === 'admin-rules' && (
+          <div className="card" style={{ maxWidth: '600px' }}>
+            <h3>Add Security Rule</h3>
+            <p style={{ color: '#888', marginBottom: '20px' }}>Define Regex patterns to block or allow commands.</p>
+            
+            <form onSubmit={addRule} className="rule-form">
+              <label>Regex Pattern</label>
+              <input name="pattern" placeholder="e.g. ^rm -rf" required />
+              
+              <label>Action</label>
+              <select name="action">
+                <option value="AUTO_REJECT">BLOCK (AUTO_REJECT)</option>
+                <option value="AUTO_ACCEPT">ALLOW (AUTO_ACCEPT)</option>
+              </select>
+              
+              <button type="submit" className="btn-primary mt-10">Save Rule</button>
+            </form>
+          </div>
+        )}
+
+        {/* VIEW: ADMIN - LOGS */}
+        {activeTab === 'admin-logs' && (
+          <div className="card full-width">
+            <div className="flex-header">
+              <h3>System Audit Logs</h3>
+              <button className="sm-btn" onClick={fetchLogs}>Refresh</button>
+            </div>
+            <div className="logs-table">
+                {logs.length === 0 ? <p className="empty">No logs found.</p> : logs.map((log, i) => (
+                  <div key={i} className="log-row">
+                    <span className="log-user">{log.user}</span>
+                    <span className="log-cmd">{log.command}</span>
+                    <span className={`log-status ${log.actionTaken}`}>{log.actionTaken}</span>
+                    <span className="log-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );
