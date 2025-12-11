@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://unboundhackathon-backend-api.onrender.com/api';
 
 function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('apiKey') || '');
