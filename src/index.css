@@ -1,0 +1,21 @@
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #181818;
+  color: #f3f3f3;
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+a {
+  color: #90caf9;
+  text-decoration: none;
+}
+a:hover {
+  color: #64b5f6;
+}
+
+h1, h2, h3, h4, h5 {
+  color: #f3f3f3;
+}
